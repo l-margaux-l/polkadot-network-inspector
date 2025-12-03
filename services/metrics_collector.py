@@ -50,24 +50,58 @@ class MetricsCollector:
         if peers_count is None:
             peers_count = 0
 
+        peers_health = self._evaluate_peers_health(peers_count)
+        overall_status = self._determine_overall_status(peers_health)
+
         metrics = HealthMetrics(
             node_name=node.name,
             block_height=block_height,
             current_block_height=current_block_height,
             peers_count=peers_count,
             finality_lag=finality_lag,
-            time_since_last_block=0,  # TODO: implement in stage 2.2
-            rpc_response_time=0.0,    # TODO: implement in stage 2.3
-            status="healthy",         # TODO: implement health check logic
+            time_since_last_block=0,
+            rpc_response_time=0.0,
+            status=overall_status,
             timestamp=datetime.now(timezone.utc)
         )
 
         logger.info(
             f"Collected metrics for {node.name}: "
-            f"block_height={block_height}, peers={peers_count}"
+            f"block_height={block_height}, peers={peers_count}, status={overall_status}"
         )
 
         return metrics
+
+    @staticmethod
+    def _evaluate_peers_health(peers_count: int) -> str:
+        """
+        Evaluate health status based on peer count.
+
+        Args:
+            peers_count: Number of connected peers.
+
+        Returns:
+            Health status: "healthy", "warning", or "critical"
+        """
+        if peers_count > 20:
+            return "healthy"
+        elif peers_count > 5:
+            return "warning"
+        else:
+            return "critical"
+
+    @staticmethod
+    def _determine_overall_status(peers_health: str) -> str:
+        """
+        Determine overall node status based on metrics.
+
+        Args:
+            peers_health: Health status from peer evaluation.
+
+        Returns:
+            Overall status string.
+        """
+        return peers_health
 
     async def disconnect(self, node_name: str) -> None:
         """Disconnect from a specific node."""

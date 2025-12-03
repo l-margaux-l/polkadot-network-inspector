@@ -93,7 +93,7 @@ class PolkadotRPCClient:
             return None
 
     def _get_peers_rpc(self) -> int:
-        """Get peers count via system_peers RPC method."""
+        """Get peers count via RPC. Returns 0 if unavailable."""
         try:
             result = self.substrate.rpc_request(
                 method="system_peers",
@@ -106,7 +106,6 @@ class PolkadotRPCClient:
             return 0
 
         except Exception as e:
-            logger.warning(f"system_peers not available: {e}")
-            # Fallback: return 0 if method not available
+            logger.debug(f"system_peers unavailable (expected on public RPC): {e}")
             return 0
 
