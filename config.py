@@ -1,8 +1,13 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import json
+import logging
 
 load_dotenv()
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Project paths
 PROJECT_ROOT = Path(__file__).parent.resolve()
@@ -69,3 +74,22 @@ NODES_CONFIG = [
         "rpc_url": "wss://kusama-rpc.polkadot.io"
     }
 ]
+
+NODES_CONFIG_FILE = PROJECT_ROOT / "nodes_config.json"
+
+
+def load_nodes_config() -> list[dict]:
+    """Load nodes configuration from JSON file."""
+    try:
+        with open(NODES_CONFIG_FILE, "r") as f:
+            config_data = json.load(f)
+            return config_data.get("nodes", [])
+    except FileNotFoundError:
+        logger.warning(f"Nodes config file not found: {NODES_CONFIG_FILE}")
+        return []
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse nodes config: {e}")
+        return []
+
+
+NODES = load_nodes_config()
