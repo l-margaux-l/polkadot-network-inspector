@@ -1,7 +1,6 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from datetime import datetime, timezone
 
 load_dotenv()
 
@@ -58,3 +57,15 @@ AUTHOR_EMAIL = "margotech.work@gmail.com"
 
 # Debug mode
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+
+# Nodes configuration
+NODES_CONFIG = [
+    {
+        "name": "Polkadot",
+        "rpc_url": os.getenv("POLKADOT_RPC_URL", "wss://rpc.polkadot.io")
+    },
+    {
+        "name": "Kusama",
+        "rpc_url": "wss://kusama-rpc.polkadot.io"
+    }
+]
