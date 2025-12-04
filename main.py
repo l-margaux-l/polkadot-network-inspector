@@ -22,12 +22,14 @@ async def collect_and_print_metrics(node: Node, collector: MetricsCollector) -> 
     metrics = await collector.collect_metrics(node)
 
     if metrics:
-        peers_status = "✓" if metrics.peers_count > 5 else "⚠"
+        peers_icon = "✓" if metrics.peers_count > 5 else "⚠" if metrics.peers_count > 0 else "✗"
+        block_icon = "✓" if metrics.time_since_last_block <= 12 else "⚠" if metrics.time_since_last_block <= 30 else "✗"
         status_icon = "✓" if metrics.status == "healthy" else "⚠" if metrics.status == "warning" else "✗"
 
         print(f"\n{status_icon} Metrics collected successfully:")
         print(f"  Block height:      {metrics.block_height}")
-        print(f"  {peers_status} Peers:             {metrics.peers_count}")
+        print(f"  {peers_icon} Peers:             {metrics.peers_count}")
+        print(f"  {block_icon} Time since block:  {metrics.time_since_last_block}s")
         print(f"  Finality lag:      {metrics.finality_lag}")
         print(f"  Status:            {metrics.status.upper()}")
         print(f"  Timestamp:         {metrics.timestamp}")

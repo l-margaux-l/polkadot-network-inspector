@@ -5,6 +5,7 @@ from typing import Optional
 from models.node import Node
 from models.metrics import HealthMetrics
 from services.rpc_client import PolkadotRPCClient
+from services.time_utils import TimeUtils
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +51,18 @@ class MetricsCollector:
         if peers_count is None:
             peers_count = 0
 
+        block_timestamp_ms = await client.get_finalized_block_timestamp()
+        if block_timestamp_ms is not None:
+            time_since_last_block = TimeUtils.calculate_time_since_last_block(
+                block_timestamp_ms
+            )
+        else:
+            time_since_last_block = 0
+
+        # Evaluate health statuses
         peers_health = self._evaluate_peers_health(peers_count)
-        overall_status = self._determine_overall_status(peers_health)
+        block_freshness = TimeUtils.evaluate_block_freshness(time_since_last_block)
+        overall_status = self._determine_overall_status(peers_health, block_freshness)
 
         metrics = HealthMetrics(
             node_name=node.name,
@@ -59,7 +70,7 @@ class MetricsCollector:
             current_block_height=current_block_height,
             peers_count=peers_count,
             finality_lag=finality_lag,
-            time_since_last_block=0,
+            time_since_last_block=time_since_last_block,
             rpc_response_time=0.0,
             status=overall_status,
             timestamp=datetime.now(timezone.utc)
@@ -67,22 +78,15 @@ class MetricsCollector:
 
         logger.info(
             f"Collected metrics for {node.name}: "
-            f"block_height={block_height}, peers={peers_count}, status={overall_status}"
+            f"block_height={block_height}, peers={peers_count}, "
+            f"time_since_block={time_since_last_block}s, status={overall_status}"
         )
 
         return metrics
 
     @staticmethod
     def _evaluate_peers_health(peers_count: int) -> str:
-        """
-        Evaluate health status based on peer count.
-
-        Args:
-            peers_count: Number of connected peers.
-
-        Returns:
-            Health status: "healthy", "warning", or "critical"
-        """
+        """Evaluate health status based on peer count."""
         if peers_count > 20:
             return "healthy"
         elif peers_count > 5:
@@ -91,17 +95,20 @@ class MetricsCollector:
             return "critical"
 
     @staticmethod
-    def _determine_overall_status(peers_health: str) -> str:
+    def _determine_overall_status(peers_health: str, block_freshness: str) -> str:
         """
-        Determine overall node status based on metrics.
+        Determine overall node status based on multiple metrics.
 
-        Args:
-            peers_health: Health status from peer evaluation.
-
-        Returns:
-            Overall status string.
+        Uses worst status (critical > warning > healthy).
         """
-        return peers_health
+        status_priority = {"critical": 3, "warning": 2, "healthy": 1}
+        
+        worst_status = max(
+            [peers_health, block_freshness],
+            key=lambda s: status_priority.get(s, 1)
+        )
+        
+        return worst_status
 
     async def disconnect(self, node_name: str) -> None:
         """Disconnect from a specific node."""

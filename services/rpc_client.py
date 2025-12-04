@@ -109,3 +109,28 @@ class PolkadotRPCClient:
             logger.debug(f"system_peers unavailable (expected on public RPC): {e}")
             return 0
 
+    async def get_finalized_block_timestamp(self) -> Optional[int]:
+        """
+        Get timestamp of the finalized head block in milliseconds.
+
+        Returns:
+            int: Timestamp in milliseconds, None if query fails
+        """
+        if not self.substrate:
+            logger.warning("Not connected to RPC")
+            return None
+
+        try:
+            timestamp = await asyncio.to_thread(
+                self._query_finalized_block_timestamp
+            )
+            return timestamp
+
+        except Exception as e:
+            logger.error(f"Failed to get finalized block timestamp: {e}")
+            return None
+
+    def _query_finalized_block_timestamp(self) -> int:
+        """Query finalized block timestamp (blocking operation)."""
+        result = self.substrate.query("Timestamp", "Now")
+        return result.value
