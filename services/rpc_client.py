@@ -188,3 +188,49 @@ class PolkadotRPCClient:
         except Exception:
             elapsed_ms = (time.time() - start_time) * 1000
             return elapsed_ms
+        
+    async def get_finalized_block_number(self) -> Optional[int]:
+        """
+        Get finalized block number.
+
+        Returns:
+            int: Finalized block number, or None if query fails.
+        """
+        if not self.substrate:
+            logger.warning("Not connected to RPC")
+            return None
+
+        try:
+            block_number = await asyncio.to_thread(
+                self._query_finalized_block_number
+            )
+            return block_number
+        except Exception as e:
+            logger.error(f"Failed to get finalized block number: {e}")
+            return None
+
+    def _query_finalized_block_number(self) -> int:
+        """Query finalized block number (blocking operation)."""
+        # Get finalized head hash via RPC
+        finalized_hash = self.substrate.rpc_request(
+            method="chain_getFinalizedHead",
+            params=[]
+        )
+        
+        # finalized_hash should be in result['result']
+        if "result" in finalized_hash:
+            finalized_hash = finalized_hash["result"]
+        
+        # Get header for this hash
+        header_result = self.substrate.rpc_request(
+            method="chain_getHeader",
+            params=[finalized_hash]
+        )
+        
+        if "result" in header_result:
+            header = header_result["result"]
+            # header['number'] is a hex string like '0x1ba1234'
+            block_number = int(header["number"], 16)
+            return block_number
+        
+        return 0
