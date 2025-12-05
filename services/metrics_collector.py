@@ -46,7 +46,13 @@ class MetricsCollector:
 
         block_height = chain_head["block_height"]
         current_block_height = block_height
-        finality_lag = 0
+
+        # Finality lag: difference between best block and finalized block
+        finalized_block_number = await client.get_finalized_block_number()
+        if finalized_block_number is not None:
+            finality_lag = max(0, block_height - finalized_block_number)
+        else:
+            finality_lag = 0
 
         peers_count = await client.get_peers_count()
         if peers_count is None:
@@ -67,8 +73,13 @@ class MetricsCollector:
         peers_health = self._evaluate_peers_health(peers_count)
         block_freshness = TimeUtils.evaluate_block_freshness(time_since_last_block)
         rpc_health = RpcUtils.evaluate_rpc_health(rpc_response_time)
+        finality_health = self._evaluate_finality_health(finality_lag)
+
         overall_status = self._determine_overall_status(
-            peers_health, block_freshness, rpc_health
+            peers_health,
+            block_freshness,
+            rpc_health,
+            finality_health,
         )
 
         metrics = HealthMetrics(
@@ -101,11 +112,27 @@ class MetricsCollector:
             return "warning"
         else:
             return "warning"
-
+        
+    @staticmethod
+    def _evaluate_finality_health(finality_lag: int) -> str:
+        """Evaluate health status based on finality lag."""
+        # healthy if lag < 10
+        # warning if 10 <= lag <= 30
+        # critical if lag > 30 or lag == 0 (no data / stuck)
+        if finality_lag == 0:
+            return "critical"
+        if finality_lag < 10:
+            return "healthy"
+        if finality_lag <= 30:
+            return "warning"
+        return "critical"
 
     @staticmethod
     def _determine_overall_status(
-        peers_health: str, block_freshness: str, rpc_health: str
+        peers_health: str,
+        block_freshness: str,
+        rpc_health: str,
+        finality_health: str,
     ) -> str:
         """
         Determine overall node status based on multiple metrics.
@@ -115,10 +142,9 @@ class MetricsCollector:
         status_priority = {"critical": 3, "warning": 2, "healthy": 1}
 
         worst_status = max(
-            [peers_health, block_freshness, rpc_health],
-            key=lambda s: status_priority.get(s, 1)
+            [peers_health, block_freshness, rpc_health, finality_health],
+            key=lambda s: status_priority.get(s, 1),
         )
-
         return worst_status
 
     async def disconnect(self, node_name: str) -> None:
