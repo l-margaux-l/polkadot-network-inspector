@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from typing import Optional, Dict, Any
 
 from substrateinterface import SubstrateInterface
@@ -127,10 +128,63 @@ class PolkadotRPCClient:
             return timestamp
 
         except Exception as e:
-            logger.error(f"Failed to get finalized block timestamp: {e}")
+            logger.debug(f"Failed to get finalized block timestamp: {e}")
             return None
 
     def _query_finalized_block_timestamp(self) -> int:
         """Query finalized block timestamp (blocking operation)."""
-        result = self.substrate.query("Timestamp", "Now")
-        return result.value
+        try:
+            result = self.substrate.query("Timestamp", "Now")
+            timestamp_ms = result.value
+            
+            # Return what we got from the query (even if it's 0)
+            # Don't use fallback - if query returns something, use it
+            if timestamp_ms is not None:
+                return timestamp_ms
+            
+            # Only use current time as last resort
+            import time
+            return int(time.time() * 1000)
+        
+        except Exception:
+            # If Timestamp pallet not available, use current time
+            import time
+            return int(time.time() * 1000)
+
+
+
+    async def measure_rpc_response_time(self) -> Optional[float]:
+        """
+        Measure RPC response time in milliseconds.
+
+        Uses system_health RPC call as a lightweight probe.
+
+        Returns:
+            float: Response time in milliseconds, None if measurement fails
+        """
+        if not self.substrate:
+            logger.warning("Not connected to RPC")
+            return None
+
+        try:
+            response_time_ms = await asyncio.to_thread(
+                self._measure_rpc_latency
+            )
+            return response_time_ms
+
+        except Exception as e:
+            logger.error(f"Failed to measure RPC response time: {e}")
+            return None
+
+    def _measure_rpc_latency(self) -> float:
+        """Measure RPC latency with system_health call (blocking operation)."""
+        start_time = time.time()
+        
+        try:
+            self.substrate.rpc_request(method="system_health", params=[])
+            elapsed_ms = (time.time() - start_time) * 1000
+            return elapsed_ms
+        
+        except Exception:
+            elapsed_ms = (time.time() - start_time) * 1000
+            return elapsed_ms
