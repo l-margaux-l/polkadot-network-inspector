@@ -70,18 +70,6 @@ class MetricsCollector:
         if rpc_response_time is None:
             rpc_response_time = 0.0
 
-        peers_health = self._evaluate_peers_health(peers_count)
-        block_freshness = TimeUtils.evaluate_block_freshness(time_since_last_block)
-        rpc_health = RpcUtils.evaluate_rpc_health(rpc_response_time)
-        finality_health = self._evaluate_finality_health(finality_lag)
-
-        overall_status = self._determine_overall_status(
-            peers_health,
-            block_freshness,
-            rpc_health,
-            finality_health,
-        )
-
         metrics = HealthMetrics(
             node_name=node.name,
             block_height=block_height,
@@ -90,9 +78,13 @@ class MetricsCollector:
             finality_lag=finality_lag,
             time_since_last_block=time_since_last_block,
             rpc_response_time=rpc_response_time,
-            status=overall_status,
-            timestamp=datetime.now(timezone.utc)
+            status="",
+            timestamp=datetime.now(timezone.utc),
         )
+
+        from services.health_checker import HealthChecker
+        overall_status = HealthChecker.evaluate_metrics(metrics)
+        metrics.status = overall_status
 
         logger.info(
             f"Collected metrics for {node.name}: "
@@ -116,9 +108,6 @@ class MetricsCollector:
     @staticmethod
     def _evaluate_finality_health(finality_lag: int) -> str:
         """Evaluate health status based on finality lag."""
-        # healthy if lag < 10
-        # warning if 10 <= lag <= 30
-        # critical if lag > 30 or lag == 0 (no data / stuck)
         if finality_lag == 0:
             return "critical"
         if finality_lag < 10:
