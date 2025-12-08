@@ -23,30 +23,29 @@ async def collect_and_print_metrics(node: Node, collector: MetricsCollector) -> 
     metrics = await collector.collect_metrics(node)
 
     if metrics:
-        if metrics.peers_count > 20:
-            peers_icon = "✓"
-        elif metrics.peers_count > 5:
-            peers_icon = "⚠"
-        elif metrics.peers_count > 0:
-            peers_icon = "⚠"
-        else:
-            peers_icon = "⚠"  
-
+        peers_icon = "✓" if metrics.peers_count > 0 else "⚠"
         block_icon = "✓" if metrics.time_since_last_block <= 12 else "⚠" if metrics.time_since_last_block <= 30 else "✗"
-        rpc_icon = "✓" if metrics.rpc_response_time <= 500 else "⚠" if metrics.rpc_response_time <= 2000 else "✗"
+        
+        # RPC time: -1 means measurement failed
+        if metrics.rpc_response_time < 0:
+            rpc_display = "N/A (timeout)"
+            rpc_icon = "⚠"
+        else:
+            rpc_display = RpcUtils.format_response_time(metrics.rpc_response_time)
+            rpc_icon = "✓" if metrics.rpc_response_time <= 500 else "⚠" if metrics.rpc_response_time <= 2000 else "✗"
+        
         status_icon = "✓" if metrics.status == "healthy" else "⚠" if metrics.status == "warning" else "✗"
 
-        print(f"\n{status_icon} Metrics collected successfully:")
+        print(f"\n{status_icon} Metrics collected (with graceful degradation):")
         print(f"  Block height:      {metrics.block_height}")
         print(f"  {peers_icon} Peers:             {metrics.peers_count}")
         print(f"  {block_icon} Time since block:  {metrics.time_since_last_block}s")
-        print(f"  {rpc_icon} RPC response time: {RpcUtils.format_response_time(metrics.rpc_response_time)}")
+        print(f"  {rpc_icon} RPC response time: {rpc_display}")
         print(f"  Finality lag:      {metrics.finality_lag}")
         print(f"  Status:            {metrics.status.upper()}")
         print(f"  Timestamp:         {metrics.timestamp}")
     else:
         print(f"\n✗ Failed to collect metrics for {node.name}")
-
 
 
 async def main():
