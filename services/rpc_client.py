@@ -151,8 +151,6 @@ class PolkadotRPCClient:
             import time
             return int(time.time() * 1000)
 
-
-
     async def measure_rpc_response_time(self) -> Optional[float]:
         """
         Measure RPC response time in milliseconds.
@@ -234,3 +232,33 @@ class PolkadotRPCClient:
             return block_number
         
         return 0
+    
+    async def get_chain_head(self) -> Optional[Dict[str, Any]]:
+        """Get current block height and hash. Returns None if fails."""
+        if not self.substrate:
+            logger.warning("Not connected to RPC")
+            return None
+
+        try:
+            result = await asyncio.wait_for(
+                asyncio.to_thread(self._query_chain_head),
+                timeout=self.timeout
+            )
+            return result
+
+        except asyncio.TimeoutError:
+            logger.warning(f"Timeout getting chain head (>{self.timeout}s)")
+            return None
+
+        except Exception as e:
+            logger.error(f"Failed to get chain head: {e}")
+            return None
+
+    def _query_chain_head(self) -> Dict[str, Any]:
+        """Query chain head (blocking operation)."""
+        block_number = self.substrate.query("System", "Number")
+        block_hash = self.substrate.query("System", "BlockHash", [block_number.value])
+        return {
+            "block_height": block_number.value,
+            "block_hash": block_hash.value,
+        }

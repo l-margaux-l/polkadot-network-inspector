@@ -6,7 +6,8 @@ from models.node import Node
 from models.metrics import HealthMetrics
 from services.rpc_client import PolkadotRPCClient
 from services.time_utils import TimeUtils
-from services.rpc_utils import RpcUtils
+from services.error_handler import ErrorHandler
+
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,12 @@ class MetricsCollector:
                 logger.error(f"Could not connect to {node.name}")
                 return None
 
-        chain_head = await client.get_chain_head()
+        chain_head = await ErrorHandler.execute_with_timeout(
+            client.get_chain_head,
+            timeout=client.timeout,
+            fallback_value=None,
+            operation_name=f"get_chain_head for {node.name}",
+        )
         if not chain_head:
             logger.error(f"Could not get chain head for {node.name}")
             return None
@@ -47,18 +53,27 @@ class MetricsCollector:
         block_height = chain_head["block_height"]
         current_block_height = block_height
 
-        # Finality lag: difference between best block and finalized block
-        finalized_block_number = await client.get_finalized_block_number()
-        if finalized_block_number is not None:
-            finality_lag = max(0, block_height - finalized_block_number)
-        else:
-            finality_lag = 0
+        finalized_block_number = await ErrorHandler.execute_with_timeout(
+            client.get_finalized_block_number,
+            timeout=client.timeout,
+            fallback_value=0,
+            operation_name=f"get_finalized_block_number for {node.name}",
+        )
+        finality_lag = max(0, block_height - finalized_block_number) if finalized_block_number else 0
 
-        peers_count = await client.get_peers_count()
-        if peers_count is None:
-            peers_count = 0
+        peers_count = await ErrorHandler.execute_with_timeout(
+            client.get_peers_count,
+            timeout=client.timeout,
+            fallback_value=0,
+            operation_name=f"get_peers_count for {node.name}",
+        )
 
-        block_timestamp_ms = await client.get_finalized_block_timestamp()
+        block_timestamp_ms = await ErrorHandler.execute_with_timeout(
+            client.get_finalized_block_timestamp,
+            timeout=client.timeout,
+            fallback_value=None,
+            operation_name=f"get_finalized_block_timestamp for {node.name}",
+        )
         if block_timestamp_ms is not None:
             time_since_last_block = TimeUtils.calculate_time_since_last_block(
                 block_timestamp_ms
@@ -66,9 +81,14 @@ class MetricsCollector:
         else:
             time_since_last_block = 0
 
-        rpc_response_time = await client.measure_rpc_response_time()
+        rpc_response_time = await ErrorHandler.execute_with_timeout(
+            client.measure_rpc_response_time,
+            timeout=client.timeout,
+            fallback_value=-1.0,
+            operation_name=f"measure_rpc_response_time for {node.name}",
+        )
         if rpc_response_time is None:
-            rpc_response_time = 0.0
+            rpc_response_time = -1.0
 
         metrics = HealthMetrics(
             node_name=node.name,
