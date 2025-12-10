@@ -93,3 +93,8 @@ def load_nodes_config() -> list[dict]:
 
 
 NODES = load_nodes_config()
+
+# Logging configuration
+LOG_DIR = "logs"
+LOG_LEVEL = "INFO"
+LOG_FORMAT = "json"  # or "text"
