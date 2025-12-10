@@ -45,6 +45,11 @@ env/
 # Logs
 logs/
 *.log
+logs/*.log
+logs/*.log.*
+data/*.csv
+data/*.db
+db/*.db
 
 # Database
 *.db
