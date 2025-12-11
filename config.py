@@ -26,9 +26,23 @@ RPC_MAX_RETRIES = 3
 
 # Monitoring settings
 CHECK_INTERVAL_SECONDS = int(os.getenv("CHECK_INTERVAL_SECONDS", "60"))
-ALERT_THRESHOLD_BLOCK_LAG = int(os.getenv("ALERT_THRESHOLD_BLOCK_LAG", "10"))
-ALERT_THRESHOLD_PEERS = int(os.getenv("ALERT_THRESHOLD_PEERS", "1"))
-ALERT_THRESHOLD_RPC_RESPONSE_TIME = 5.0
+
+# Alert thresholds (trigger notifications when exceeded)
+ALERT_THRESHOLD_FINALITY_LAG = int(
+    os.getenv("ALERT_THRESHOLD_FINALITY_LAG", "50")
+)
+
+ALERT_THRESHOLD_RPC_RESPONSE_TIME_MS = int(
+    os.getenv("ALERT_THRESHOLD_RPC_RESPONSE_TIME_MS", "5000")
+)
+
+ALERT_THRESHOLD_PEERS_MIN = int(
+    os.getenv("ALERT_THRESHOLD_PEERS_MIN", "5")
+)
+
+ALERT_THRESHOLD_BLOCK_AGE_SECONDS = int(
+    os.getenv("ALERT_THRESHOLD_BLOCK_AGE_SECONDS", "60")
+)
 
 # Email notifications
 SMTP_SERVER = os.getenv("SMTP_SERVER", "smtp.gmail.com")
